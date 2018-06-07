@@ -3,55 +3,39 @@
 require_relative 'lib/common'
 require_relative 'lib/catalog'
 require_relative 'lib/provision'
-require_relative 'lib/request_status'
-require 'byebug'
+require_relative 'lib/operation_status'
+require_relative 'lib/custom_attribute'
+require_relative 'lib/deprovision'
+require_relative 'lib/request_options'
 
 class Servicebroker < Sinatra::Base
 
-  CACHE = {}
-
   get '/v2/catalog' do
-    Catalog.new.get_catalog.to_json
+    Catalog.new(options).get_catalog.to_json
   end
 
   get '/v2/service_instances/:instance_id/last_operation' do
     @id = params['instance_id']
     @operation = params['operation']
 
-    options = {:url        => 'https://10.8.198.182',
-               :user       => 'admin',
-               :password   => 'smartvm',
-               :verify_ssl => false}
-    request_href = @operation.split('create_')[1]
-    puts request_href
-
-    result = RequestStatus.new(options, request_href).status
-    puts result
     begin
       if @operation.start_with?('create')
-        if result['request_state'] == 'finished'
-          {
-            state: 'succeeded',
-            description: result['message']
-          }.to_json
-        else
-          {
-            state: 'in progress',
-            description: result['message']
-          }.to_json
+        href = @operation.split('create_')[1]
+        puts href
+        result = OperationStatus.new(options, href).status
+        puts result
+        if result['state'] == 'succeeded'
+          os_attrs = RequestOptions.new(options.merge(:request_href => href)).get_options['os_attrs']
+          CustomAttribute.new(options.merge(:request_href => href)).set_attributes(os_attrs)
         end
+        result.to_json
       elsif @operation.start_with?('destroy')
-        if K8s.undeployed?(CACHE[@id], @id)
-          {
-            state: 'succeeded',
-            description: 'Workshop content is undeployed.'
-          }.to_json
-        else
-          {
-            state: 'in progress',
-            description: 'Still undeploying the workshop content.'
-          }.to_json
-        end
+        href = @operation.split('destroy_')[1]
+        puts href
+
+        result = OperationStatus.new(options, href).status
+        puts result
+        result.to_json
       end
     rescue => e
       {
@@ -68,17 +52,15 @@ class Servicebroker < Sinatra::Base
     @plan = @data['plan_id']
     @parameters = @data['parameters']
     @context = @data['context']
+    @namespace = @context['namespace']
 
-    CACHE[@id] = { namespace: @context['namespace'] }
+    miq_request_href = Provision.new(options, @parameters, @id).execute
 
-    
-    options = {:url        => 'https://10.8.198.182',
-               :user       => 'admin',
-               :password   => 'smartvm',
-               :verify_ssl => false}
-    miq_request_href = Provision.new(options, @parameters, @id).provision
-
-
+    os_options = {'os_attrs' => { 'openshift_instance_id' => @id,
+                                  'service_id'            => @data['service_id'],
+                                  'parameters'            => @parameters,
+                                  'plan_id'               => @data['plan_id'] } }
+    RequestOptions.new(options.merge(:request_href => miq_request_href)).set_options(os_options)
     status 202
 
     { operation: "create_#{miq_request_href}" , miq_request_href: miq_request_href}.to_json
@@ -87,11 +69,11 @@ class Servicebroker < Sinatra::Base
   delete '/v2/service_instances/:instance_id' do
     @id = params['instance_id']
 
-    K8s.undeploy(CACHE[@id][:namespace], @id)
-
     status 202
+    href = DeProvision.new(options, {}, @id).execute
 
-    { operation: "destroy_#{@id}" }.to_json
+
+    { operation: "destroy_#{href}" }.to_json
   end
 
   patch '/v2/service_instances/:instance_id' do
@@ -109,6 +91,12 @@ class Servicebroker < Sinatra::Base
     {}.to_json
   end
 
+  def options
+    { :url        => 'https://cfmeserver',
+      :user       => 'admin',
+      :password   => 'xxxxxxx',
+      :verify_ssl => false }
+  end
 end
 
 run Servicebroker

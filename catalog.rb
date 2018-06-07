@@ -3,10 +3,10 @@ require 'byebug'
 
 class Catalog
   def initialize(options = {})
-    @url           = options[:url] || 'https://10.8.198.182'
-    @user          = options[:user] || 'admin'
-    @password      = options[:password] || 'smartvm'
-    @verify_ssl    = options[:verify_ssl] || false
+    @url           = options[:url]
+    @user          = options[:user]
+    @password      = options[:password]
+    @verify_ssl    = options[:verify_ssl]
     raise "url not specified" unless @url
   end
 
@@ -42,8 +42,11 @@ class Catalog
   end
 end
 
-options = {:url        => 'https://10.8.198.182',
-           :user       => 'admin',
-           :password   => 'smartvm',
-           :verify_ssl => false}
-#puts Catalog.new(options).get_catalog.to_json
+if __FILE__ == $PROGRAM_NAME
+  options = {}
+  options[:user] = "admin"
+  options[:password] = "xxxxxx"
+  options[:verify_ssl] = false
+  options[:url] = 'https://cfmeserver/api'
+  puts Catalog.new(options).get_catalog.to_json
+end

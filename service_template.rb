@@ -74,9 +74,9 @@ class ServiceTemplate
 
   def template_by_href
     puts "Fetching Service Template #{@template_href}"
-    # query = "&attributes=config_info,picture.image_href"
+    query = "?attributes=config_info,picture.image_href"
     rest_return = RestClient::Request.execute(:method => :get,
-                                              :url    => @template_href,
+                                              :url    => @template_href + query,
                                               :user   => @user,
                                               :password => @password,
                                               :headers  => {:accept => :json},

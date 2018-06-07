@@ -19,7 +19,7 @@ class ServiceTemplateToOSB
 
   def convert
     puts "Converting to OSB API SPEC for service template #{@svc_template.object['name']}"
-    metadata = { 'displayName' => "#{@svc_template.object['name']} (APB)" }
+    metadata = { 'displayName' => "#{@svc_template.object['name']} (CFME)" }
     metadata['imageUrl'] = @svc_template.object['picture']['image_href'] if @svc_template.object['picture']
 
     @svc_template.object['description'] = 'No description provided' if @svc_template.object['description'].empty?
@@ -40,7 +40,7 @@ class ServiceTemplateToOSB
   def default_plan(parameters)
     {
      'name'        => DEFAULT_PLAN_NAME,
-     'description' => "Default deployment plan for #{@svc_template.object['name']}-apb",
+     'description' => "Default deployment plan for #{@svc_template.object['name']}-cfme",
      'free'        => true,
      'id'          => @svc_template.object['guid'],
      'metadata'    => plan_metadata,
